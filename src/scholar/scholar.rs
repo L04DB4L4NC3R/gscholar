@@ -1,5 +1,7 @@
 struct Client {}
 
+struct ScholarResult {}
+
 pub struct ScholarArgs {
    // q - required
    pub query: &'static str,
@@ -49,6 +51,16 @@ trait Args {
     fn get_url(&self) -> Result<String, Error>;
 }
 
+trait ScrapeResult {
+    fn deserialize(&self) -> String;
+}
+
+impl ScrapeResult for ScholarResult {
+    fn deserialize(&self) -> String {
+        String::new()
+    }
+}
+
 impl Args for ScholarArgs {
     fn get_service(&self) -> Services {
         return Services::Scholar;
@@ -79,18 +91,22 @@ impl Args for ScholarArgs {
            url.push_str(&i.to_string()[..]);
        }
        if let Some(i) = self.sort_by {
-           url.push_str("&scisbd=");
-           url.push_str(&i.to_string()[..]);
+           if i < 3 {
+               url.push_str("&scisbd=");
+               url.push_str(&i.to_string()[..]);
+           }
        }
        if let Some(i) = self.cluster_id {
            url.push_str("&cluster=");
            url.push_str(i);
        }
        if let Some(i) = self.lang {
+           // TODO: validation
            url.push_str("&hl=");
            url.push_str(i);
        }
        if let Some(i) = self.lang_limit {
+           // TODO: validation
            url.push_str("&lr=");
            url.push_str(i);
        }
@@ -104,27 +120,33 @@ impl Args for ScholarArgs {
        }
        if let Some(i) = self.adult_filtering {
            url.push_str("&safe=");
-           url.push_str(&i.to_string()[..]);
+           if i {
+               url.push_str("active");
+           } else {
+               url.push_str("off");
+           }
        }
        if let Some(i) = self.include_similar_results {
            url.push_str("&filter=");
-           url.push_str(&i.to_string()[..]);
+           if i {
+               url.push_str("1");
+           } else {
+               url.push_str("0");
+           }
        }
        if let Some(i) = self.include_citations {
            url.push_str("&as_vis=");
-           url.push_str(&i.to_string()[..]);
+           if i {
+               url.push_str("1");
+           } else {
+               url.push_str("0");
+           }
        }
-       if let Some(i) = self.adult_filtering {
-           url.push_str("&adult_filtering=");
-           url.push_str(&i.to_string()[..]);
-       }
-
        return Ok(url);
     }
 }
 
 pub enum Error {
-    Nil,
     ConnectionError,
     ParseError,
     InvalidServiceError,
@@ -175,22 +197,60 @@ fn get_base_url<'a>(service: Services) -> &'a str {
 }
 
 impl Client {
-    fn get_document(url: &str) -> Result<&str, Error> {
+    fn get_document(&self, url: &str) -> Result<&str, Error> {
         return Err(Error::NotImplementedError);
     }
 
-    fn scrape_serialize<T>(document: &str) -> Result<T, Error> {
+    fn scrape_serialize<ScrapeResult>(&self, document: &str) -> Result<ScrapeResult, Error> {
         return Err(Error::NotImplementedError);
     }
 
-    pub fn scrape<T>(args: &dyn Args) -> Result<(), Error> {
-        let url : String;
+    pub fn scrape<ScrapeResult>(&self, args: &dyn Args) -> Result<ScrapeResult, Error> {
+        let url: String;
         match args.get_url() {
             Ok(u) => url = u,
             Err(e) => return Err(e),
         };
         
-        print!("{}", url);
-        return Ok(());
+        let doc: &str;
+        match self.get_document(&url[..]) {
+            Ok(page) => doc = &page[..],
+            Err(e) => return Err(e),
+        };
+
+        match self.scrape_serialize::<ScrapeResult>(doc) {
+            Ok(result) => return Ok(result),
+            Err(e) => return Err(e),
+        };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_url_query() {
+        let sc = new(
+            "abcd", None, None, None, None, None, 
+            None, None, None, None, None, None, None);
+
+        match sc.get_url() {
+            Ok(url) => assert!(url.eq("https://scholar.google.com/scholar?q=abcd"), "value was {}", url),
+            Err(_e) => assert_eq!(false, true),
+        }
+    }
+
+    #[test]
+    fn build_url_all() {
+        let sc = new(
+            "abcd", Some("213123123123"), Some(2018), Some(2021), Some(0), Some("3121312312"), 
+            Some("en"), Some("lang_fr|lang_en"), Some(10), Some(5), Some(true), Some(true), 
+            Some(true));
+        match sc.get_url() {
+            Ok(url) => assert!(
+                url.eq("https://scholar.google.com/scholar?q=abcd&cites=213123123123&as_ylo=2018&as_yhi=2021&scisbd=0&cluster=3121312312&hl=en&lr=lang_fr|lang_en&num=10&start=5&safe=active&filter=1&as_vis=1"), "value was {}", url),
+            Err(_e) => assert_eq!(false, true),
+        }
     }
 }
