@@ -1,7 +1,13 @@
+pub mod scholar;
+
 #[cfg(test)]
 mod tests {
+    use crate::scholar;
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn new_scholar_query() {
+        let sc = scholar::new(
+            "abcd", None, None, None, None, None, 
+            None, None, None, None, None, None, None);
+        assert_eq!(sc.query, "abcd");
     }
 }
