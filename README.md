@@ -7,7 +7,7 @@ let sc = scholar::ScholarArgs{
     cite_id: None,
     from_year: Some(2018),
     to_year: Some(2021),
-    sort_by: SOme(0),
+    sort_by: Some(0),
     cluster_id: None,
     lang: Some("en"),
     lang_limit: None,
