@@ -7,6 +7,15 @@ pub struct Client {
      client: reqwest::Client,
 }
 
+pub enum Error {
+    ConnectionError,
+    ParseError,
+    InvalidServiceError,
+    RequiredFieldError,
+    NotImplementedError,
+    InvalidResponseError,
+}
+
 pub struct ScholarResult {
    pub title: String,
    pub author: String,
@@ -156,15 +165,6 @@ impl Args for ScholarArgs {
     }
 }
 
-pub enum Error {
-    ConnectionError,
-    ParseError,
-    InvalidServiceError,
-    RequiredFieldError,
-    NotImplementedError,
-    InvalidResponseError,
-}
-
 pub enum Services {
     Scholar,
 }
@@ -181,7 +181,7 @@ fn get_base_url<'a>(service: Services) -> &'a str {
 }
 
 impl Client {
-    async fn get_document(&self, url: &str) -> Result<String, Error> {
+    async fn get_document(&self, url: &str) -> Result<String, errors::Error> {
         let resp = self.client.get(url)
             .send()
             .await;
