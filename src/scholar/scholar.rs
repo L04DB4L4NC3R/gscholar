@@ -248,7 +248,7 @@ impl Client {
         return Ok(response);
     }
 
-    pub async fn scrape<ScrapeResult>(&self, args: &dyn Args) -> Result<Vec<ScholarResult>, Error> {
+    pub async fn scrape_scholar(&self, args: &dyn Args) -> Result<Vec<ScholarResult>, Error> {
         let url: String;
         match args.get_url() {
             Ok(u) => url = u,
@@ -343,7 +343,7 @@ match sc.get_url() {
         }
 
         let client = init_client();
-        match client.scrape::<ScholarResult>(&sc).await {
+        match client.scrape_scholar(&sc).await {
             Ok(res) => assert_eq!(res.len(), 3),
             Err(_e) => assert_eq!(true, false),
         }
