@@ -1,54 +1,67 @@
-struct Client {}
+extern crate reqwest;
+extern crate select;
 
-struct ScholarResult {}
+use scraper::{Html, Selector};
+
+pub struct Client {
+     client: reqwest::Client,
+}
+
+pub struct ScholarResult {
+   pub title: String,
+   pub author: String,
+   pub abs: String,
+   pub link: String,
+}
 
 pub struct ScholarArgs {
    // q - required
    pub query: &'static str,
 
    // cites - citaction id to trigger "cited by"
-   cite_id: Option<&'static str>,
+   pub cite_id: Option<&'static str>,
 
    // as_ylo - give results from this year onwards
-   from_year: Option<u16>,
+   pub from_year: Option<u16>,
 
    // as_yhi
-   to_year: Option<u16>,
+   pub to_year: Option<u16>,
 
    // scisbd - 0 for relevence, 1 to include only abstracts, 2 for everything. Default = date
-   sort_by: Option<u8>,
+   pub sort_by: Option<u8>,
 
    // cluster - query all versions. Use with q and cites prohibited
-   cluster_id: Option<&'static str>,
+   pub cluster_id: Option<&'static str>,
 
    // hl - eg: hl=en for english
-   lang: Option<&'static str>,
+   pub lang: Option<&'static str>,
 
    // lr - one or multiple languages to limit the results to
    // eg: lr=lang_fr|lang_en
-   lang_limit: Option<&'static str>,
+   pub lang_limit: Option<&'static str>,
 
    // num - max number of results to return
-   limit: Option<u32>,
+   pub limit: Option<u32>,
 
    // start - result offset. Can be used with limit for pagination
-   offset: Option<u32>,
+   pub offset: Option<u32>,
 
    // safe - level of filtering
    // safe=active or safe=off
-   adult_filtering: Option<bool>,
+   pub adult_filtering: Option<bool>,
 
    // filter - whether to give similar/ommitted results
    // filter=1 for similar results and 0 for ommitted
-   include_similar_results: Option<bool>,
+   pub include_similar_results: Option<bool>,
 
    // as_vis - set to 1 for including citations, otherwise 0
-   include_citations: Option<bool>,
+   pub include_citations: Option<bool>,
 }
 
-trait Args {
+pub trait Args {
     fn get_service(&self) -> Services;
     fn get_url(&self) -> Result<String, Error>;
+    fn get_limit(&self) -> usize;
 }
 
 trait ScrapeResult {
@@ -57,6 +70,7 @@ trait ScrapeResult {
 
 impl ScrapeResult for ScholarResult {
     fn deserialize(&self) -> String {
+        // TODO
         String::new()
     }
 }
@@ -64,6 +78,13 @@ impl ScrapeResult for ScholarResult {
 impl Args for ScholarArgs {
     fn get_service(&self) -> Services {
         return Services::Scholar;
+    }
+
+    fn get_limit(&self) -> usize {
+        if let Some(s) = self.limit {
+            return s as usize
+        }
+        return 0usize
     }
 
     fn get_url(&self) -> Result<String, Error> {
@@ -152,42 +173,16 @@ pub enum Error {
     InvalidServiceError,
     RequiredFieldError,
     NotImplementedError,
+    InvalidResponseError,
 }
 
 enum Services {
     Scholar,
 }
 
-pub fn new(
-    query: &'static str,
-    cite_id: Option<&'static str>,
-    from_year: Option<u16>,
-    to_year: Option<u16>,
-    sort_by: Option<u8>,
-    cluster_id: Option<&'static str>,
-    lang: Option<&'static str>,
-    lang_limit: Option<&'static str>,
-    limit: Option<u32>,
-    offset: Option<u32>,
-    adult_filtering: Option<bool>,
-    include_similar_results: Option<bool>,
-    include_citations: Option<bool>
-) -> ScholarArgs {
-    ScholarArgs{
-        query,
-        cite_id,
-        from_year,
-        to_year,
-        sort_by,
-        cluster_id,
-        lang,
-        lang_limit,
-        limit,
-        offset,
-        adult_filtering,
-        include_similar_results,
-        include_citations,
-    }
+pub fn init_client() -> Client {
+    let client = reqwest::Client::new();
+    Client{client}
 }
 
 fn get_base_url<'a>(service: Services) -> &'a str {
@@ -197,28 +192,76 @@ fn get_base_url<'a>(service: Services) -> &'a str {
 }
 
 impl Client {
-    fn get_document(&self, url: &str) -> Result<&str, Error> {
-        return Err(Error::NotImplementedError);
+    async fn get_document(&self, url: &str) -> Result<String, Error> {
+        let resp = self.client.get(url)
+            .send()
+            .await;
+        if !resp.is_ok() {
+            return Err(Error::ConnectionError);
+        }
+        let val: String = resp.unwrap().text().await.unwrap();
+        return Ok(val);
     }
 
-    fn scrape_serialize<ScrapeResult>(&self, document: &str) -> Result<ScrapeResult, Error> {
-        return Err(Error::NotImplementedError);
+    fn scrape_serialize(&self, document: String) -> Result<Vec<ScholarResult>, Error> {
+        let fragment = Html::parse_document(&document[..]);
+
+        let article_selector = Selector::parse(".gs_ri").unwrap();
+        let title_selector = Selector::parse(".gs_rt").unwrap();
+        let abstract_selector = Selector::parse(".gs_rs").unwrap();
+        let author_selector = Selector::parse(".gs_a").unwrap();
+        let link_selector = Selector::parse("a").unwrap();
+
+        let nodes = fragment.select(&article_selector).collect::<Vec<_>>();
+
+        let response = nodes
+            .chunks_exact(1)
+            .map(|rows| {
+                let title = rows[0].select(&title_selector)
+                    .next()
+                    .unwrap();
+                let link = rows[0].select(&link_selector)
+                    .next()
+                    .and_then(|n| n.value().attr("href"))
+                    .unwrap();
+                let abs = rows[0].select(&abstract_selector)
+                    .next()
+                    .unwrap();
+                let author = rows[0].select(&author_selector)
+                    .next()
+                    .unwrap();
+
+                let ti = title.text().collect::<String>();
+                let ab = abs.text().collect::<String>();
+                let au = author.text().collect::<String>();
+                let li = link.to_string();
+
+                let l = ScholarResult{
+                    title: ti,
+                    author: au,
+                    abs: ab,
+                    link: li,
+                };
+                l
+            }).collect::<Vec<ScholarResult>>();
+
+        return Ok(response);
     }
 
-    pub fn scrape<ScrapeResult>(&self, args: &dyn Args) -> Result<ScrapeResult, Error> {
+    pub async fn scrape<ScrapeResult>(&self, args: &dyn Args) -> Result<Vec<ScholarResult>, Error> {
         let url: String;
         match args.get_url() {
             Ok(u) => url = u,
             Err(e) => return Err(e),
         };
         
-        let doc: &str;
-        match self.get_document(&url[..]) {
-            Ok(page) => doc = &page[..],
+        let doc: String;
+        match self.get_document(&url[..]).await {
+            Ok(page) => doc = page,
             Err(e) => return Err(e),
         };
 
-        match self.scrape_serialize::<ScrapeResult>(doc) {
+        match self.scrape_serialize(doc) {
             Ok(result) => return Ok(result),
             Err(e) => return Err(e),
         };
@@ -231,9 +274,21 @@ mod tests {
 
     #[test]
     fn build_url_query() {
-        let sc = new(
-            "abcd", None, None, None, None, None, 
-            None, None, None, None, None, None, None);
+        let sc = ScholarArgs{
+            query: "abcd",
+            cite_id: None,
+            from_year: None,
+            to_year: None,
+            sort_by: None,
+            cluster_id: None,
+            lang: None,
+            lang_limit: None,
+            limit: None,
+            offset: None,
+            adult_filtering: None,
+            include_similar_results: None,
+            include_citations: None,
+        };
 
         match sc.get_url() {
             Ok(url) => assert!(url.eq("https://scholar.google.com/scholar?q=abcd"), "value was {}", url),
@@ -243,14 +298,54 @@ mod tests {
 
     #[test]
     fn build_url_all() {
-        let sc = new(
-            "abcd", Some("213123123123"), Some(2018), Some(2021), Some(0), Some("3121312312"), 
-            Some("en"), Some("lang_fr|lang_en"), Some(10), Some(5), Some(true), Some(true), 
-            Some(true));
+        let sc = ScholarArgs{
+            query: "abcd",
+            cite_id: Some("213123123123"),
+            from_year: Some(2018),
+            to_year: Some(2021),
+            sort_by: Some(0),
+            cluster_id: Some("3121312312"),
+            lang: Some("en"),
+            lang_limit: Some("lang_fr|lang_en"),
+            limit: Some(10),
+            offset: Some(5),
+            adult_filtering: Some(true),
+            include_similar_results: Some(true),
+            include_citations: Some(true),
+        };
         match sc.get_url() {
             Ok(url) => assert!(
                 url.eq("https://scholar.google.com/scholar?q=abcd&cites=213123123123&as_ylo=2018&as_yhi=2021&scisbd=0&cluster=3121312312&hl=en&lr=lang_fr|lang_en&num=10&start=5&safe=active&filter=1&as_vis=1"), "value was {}", url),
             Err(_e) => assert_eq!(false, true),
+        }
+    }
+
+    #[tokio::test]
+    async fn scrape_with_query() {
+        let sc = ScholarArgs{
+            query: "machine-learning",
+            cite_id: None,
+            from_year: None,
+            to_year: None,
+            sort_by: None,
+            cluster_id: None,
+            lang: None,
+            lang_limit: None,
+            limit: Some(3),
+            offset: Some(0),
+            adult_filtering: None,
+            include_similar_results: None,
+            include_citations: None,
+        };
+match sc.get_url() {
+            Ok(url) => println!("_URLS {}", url),
+            Err(_e) => assert_eq!(false, true),
+        }
+
+        let client = init_client();
+        match client.scrape::<ScholarResult>(&sc).await {
+            Ok(res) => assert_eq!(res.len(), 3),
+            Err(_e) => assert_eq!(true, false),
         }
     }
 }
