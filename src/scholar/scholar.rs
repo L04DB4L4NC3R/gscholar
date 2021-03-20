@@ -64,17 +64,6 @@ pub trait Args {
     fn get_limit(&self) -> usize;
 }
 
-trait ScrapeResult {
-    fn deserialize(&self) -> String;
-}
-
-impl ScrapeResult for ScholarResult {
-    fn deserialize(&self) -> String {
-        // TODO
-        String::new()
-    }
-}
-
 impl Args for ScholarArgs {
     fn get_service(&self) -> Services {
         return Services::Scholar;
@@ -176,7 +165,7 @@ pub enum Error {
     InvalidResponseError,
 }
 
-enum Services {
+pub enum Services {
     Scholar,
 }
 
