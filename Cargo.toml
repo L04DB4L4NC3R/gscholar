@@ -2,7 +2,12 @@
 name = "scholar"
 version = "0.1.0"
 authors = ["L04DB4L4NC3R <angadsharma1016@gmail.com>"]
-edition = "2018"
+description = "The unofficial Google Scholar API"
+repository = "https://github.com/L04DB4L4NC3R/scholar"
+readme = "README.md"
+licence-file = "LICENCE"
+keywords = ["google", "scholar", "api", "research", "books"]
+categories = ["api-bindings"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
