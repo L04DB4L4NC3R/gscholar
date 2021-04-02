@@ -181,7 +181,7 @@ fn get_base_url<'a>(service: Services) -> &'a str {
 }
 
 impl Client {
-    async fn get_document(&self, url: &str) -> Result<String, errors::Error> {
+    async fn get_document(&self, url: &str) -> Result<String, Error> {
         let resp = self.client.get(url)
             .send()
             .await;
