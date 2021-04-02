@@ -1,6 +1,7 @@
 [package]
 name = "scholar"
 version = "0.1.0"
+edition = "2018"
 authors = ["L04DB4L4NC3R <angadsharma1016@gmail.com>"]
 description = "The unofficial Google Scholar API"
 repository = "https://github.com/L04DB4L4NC3R/scholar"
