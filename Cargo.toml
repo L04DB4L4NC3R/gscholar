@@ -6,7 +6,7 @@ authors = ["L04DB4L4NC3R <angadsharma1016@gmail.com>"]
 description = "The unofficial Google Scholar API"
 repository = "https://github.com/L04DB4L4NC3R/scholar"
 readme = "README.md"
-license-file = "LICENCE"
+license-file = "LICENSE"
 keywords = ["google", "scholar", "api", "research", "books"]
 categories = ["api-bindings"]
 
