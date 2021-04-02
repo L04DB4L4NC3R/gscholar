@@ -1,5 +1,5 @@
 [package]
-name = "scholar"
+name = "gscholar"
 version = "0.1.0"
 edition = "2018"
 authors = ["L04DB4L4NC3R <angadsharma1016@gmail.com>"]
