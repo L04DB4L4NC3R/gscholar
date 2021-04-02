@@ -1,5 +1,5 @@
-## Scholar
-scrape google scholar results
+## gscholar
+The unofficial Google Scholar API
 
 ```sh
 let sc = scholar::ScholarArgs{
